@@ -32,7 +32,7 @@ module OmniAuth
         end if runtime_request_parameters
 
         authn_request = OneLogin::RubySaml::Authrequest.new
-        settings = OneLogin::RubySaml::Settings.new(options)
+        settings = create_settings(options)
 
         redirect(authn_request.create(settings, additional_params))
       end
@@ -53,7 +53,7 @@ module OmniAuth
         end
 
         response = OneLogin::RubySaml::Response.new(request.params['SAMLResponse'], options)
-        response.settings = OneLogin::RubySaml::Settings.new(options)
+        response.settings = create_settings(options)
         response.attributes['fingerprint'] = options.idp_cert_fingerprint
 
         # will raise an error since we are not in soft mode
@@ -93,7 +93,7 @@ module OmniAuth
           setup_phase
 
           response = OneLogin::RubySaml::Metadata.new
-          settings = OneLogin::RubySaml::Settings.new(options)
+          settings = create_settings(options)
           if options.request_attributes.length > 0
             settings.attribute_consuming_service.service_name options.attribute_service_name
             options.request_attributes.each do |attribute|
@@ -125,6 +125,25 @@ module OmniAuth
         end
 
         nil
+      end
+
+      private
+
+      def create_settings(options)
+        if options.idp_metadata_file || options.idp_metadata_url
+          idp_metadata_parser = OneLogin::RubySaml::IdpMetadataParser.new
+          if options.idp_metadata_file
+            settings = idp_metadata_parser.parse(options.idp_metadata_file)
+          elsif options.idp_metadata_url
+            settings = idp_metadata_parser.parse_remote(options.idp_metadata_url)
+          end
+          options.each do |option, value|
+            settings.try("#{option}=", value)
+          end
+          settings
+        else
+          OneLogin::RubySaml::Settings.new(options)
+        end
       end
     end
   end
